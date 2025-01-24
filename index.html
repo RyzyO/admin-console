@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel</title>
+</head>
+<body>
+
+  <h1>Admin Panel</h1>
+  <div id="loginSection">
+    <h2>Login</h2>
+    <button id="loginBtn">Login</button>
+  </div>
+
+  <div id="adminSection" style="display:none;">
+    <h2>Search for User</h2>
+    <input type="text" id="searchInput" placeholder="Search by Display Name">
+    <button id="searchBtn">Search</button>
+
+    <div id="userDetails" style="display:none;">
+      <h3>User Details</h3>
+      <div>
+        <label>Amt Outstanding:</label>
+        <input type="text" id="amtOutstandingInput">
+      </div>
+      <div>
+        <label>Email:</label>
+        <input type="text" id="emailInput">
+      </div>
+      <div>
+        <label>Hacker Number:</label>
+        <input type="text" id="hackerNumberInput">
+      </div>
+      <div>
+        <label>Room Number:</label>
+        <input type="text" id="roomNumberInput">
+      </div>
+      <div>
+        <label>Friday:</label>
+        <input type="text" id="friInput">
+      </div>
+      <div>
+        <label>Saturday:</label>
+        <input type="text" id="satInput">
+      </div>
+      <div>
+        <label>Sunday:</label>
+        <input type="text" id="sunInput">
+      </div>
+      <div>
+        <label>Financial Status:</label>
+        <input type="text" id="financialStatusInput">
+      </div>
+      <button id="saveBtn">Save Changes</button>
+    </div>
+
+    <h2>Add New User</h2>
+    <div>
+      <label>Email:</label>
+      <input type="email" id="newUserEmail">
+    </div>
+    <div>
+      <label>Password:</label>
+      <input type="password" id="newUserPassword">
+    </div>
+    <div>
+      <label>Display Name:</label>
+      <input type="text" id="newUserDisplayName">
+    </div>
+    <button id="addUserBtn">Add User</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAYat6m3-Lv46vfm6xcHLjTjRDq7NdCxAk",
+      authDomain: "hackers-cup.firebaseapp.com",
+      projectId: "hackers-cup",
+      storageBucket: "hackers-cup.appspot.com",
+      messagingSenderId: "765736070872",
+      appId: "1:765736070872:web:86a51c41916e7af75631ad",
+      measurementId: "G-6E1M14F510"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const rtdb = getDatabase(app);
+    const auth = getAuth(app);
+
+    // Check user authentication
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        const uid = user.uid;
+        if (uid !== "Gz5iQnXZGFQdsoVPE2889l28hcl2" && uid !== "ObXr01E5CEhWAxVwfgqyznAxVuv1") {
+          alert("You do not have access to this page.");
+          signOut(auth);
+        } else {
+          document.getElementById('loginSection').style.display = 'none';
+          document.getElementById('adminSection').style.display = 'block';
+        }
+      }
+    });
+
+    // Login button action
+    document.getElementById('loginBtn').onclick = () => {
+      signInAnonymously(auth)
+        .catch((error) => {
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          console.error(errorCode, errorMessage);
+        });
+    };
+
+    // Search for a user by displayName
+    document.getElementById('searchBtn').onclick = async () => {
+      const searchDisplayName = document.getElementById('searchInput').value;
+      const usersRef = ref(rtdb, 'users');
+      const snapshot = await get(usersRef);
+      
+      let foundUser = null;
+      snapshot.forEach(childSnapshot => {
+        const userData = childSnapshot.val();
+        if (userData.displayName === searchDisplayName) {
+          foundUser = childSnapshot.key;
+        }
+      });
+
+      if (foundUser) {
+        displayUserDetails(foundUser);
+      } else {
+        alert("User not found");
+      }
+    };
+
+    // Display user details and make them editable
+    async function displayUserDetails(userID) {
+      const userRef = ref(rtdb, 'users/' + userID);
+      const snapshot = await get(userRef);
+
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        document.getElementById('amtOutstandingInput').value = userData.amtOutstanding;
+        document.getElementById('emailInput').value = userData.email;
+        document.getElementById('hackerNumberInput').value = userData.hackerNumber;
+        document.getElementById('roomNumberInput').value = userData.roomNumber;
+        document.getElementById('friInput').value = userData.fri;
+        document.getElementById('satInput').value = userData.sat;
+        document.getElementById('sunInput').value = userData.sun;
+      }
+
+      const financialStatusRef = doc(db, "users", userID);
+      const financialStatusDoc = await getDoc(financialStatusRef);
+
+      if (financialStatusDoc.exists()) {
+        document.getElementById('financialStatusInput').value = financialStatusDoc.data().financialStatus;
+      }
+
+      document.getElementById('userDetails').style.display = 'block';
+    }
+
+    // Save changes to the user
+    document.getElementById('saveBtn').onclick = async () => {
+      const userID = document.getElementById('searchInput').value;
+      const updatedData = {
+        amtOutstanding: document.getElementById('amtOutstandingInput').value,
+        email: document.getElementById('emailInput').value,
+        hackerNumber: document.getElementById('hackerNumberInput').value,
+        roomNumber: document.getElementById('roomNumberInput').value,
+        fri: document.getElementById('friInput').value,
+        sat: document.getElementById('satInput').value,
+        sun: document.getElementById('sunInput').value
+      };
+
+      // Update Realtime Database
+      const userRef = ref(rtdb, 'users/' + userID);
+      await update(userRef, updatedData);
+
+      // Update Firestore
+      const financialStatusRef = doc(db, "users", userID);
+      await setDoc(financialStatusRef, {
+        financialStatus: document.getElementById('financialStatusInput').value
+      }, { merge: true });
+
+      // Update amtOutstanding in Firestore
+      const amtOutstandingRef = doc(db, "users", userID);
+      await setDoc(amtOutstandingRef, {
+        amtOutstanding: document.getElementById('amtOutstandingInput').value
+      }, { merge: true });
+
+      alert("User data updated successfully");
+    };
+
+    // Add New User
+    document.getElementById('addUserBtn').onclick = async () => {
+      const email = document.getElementById('newUserEmail').value;
+      const password = document.getElementById('newUserPassword').value;
+      const displayName = document.getElementById('newUserDisplayName').value;
+
+      // Create user in Firebase Authentication
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Add user details to Firestore and Realtime Database
+        const newUserRef = doc(db, "users", user.uid);
+        await setDoc(newUserRef, {
+          displayName,
+          amtOutstanding: 0,
+          email,
+          hackerNumber: "",
+          roomNumber: "",
+          fri: "",
+          sat: "",
+          sun: ""
+        });
+
+        const newUserRTDBRef = ref(rtdb, 'users/' + user.uid);
+        await set(newUserRTDBRef, {
+          displayName,
+          amtOutstanding: 0,
+          email,
+          hackerNumber: "",
+          roomNumber: "",
+          fri: "",
+          sat: "",
+          sun: ""
+        });
+
+        alert("New user added successfully");
+      } catch (error) {
+        console.error("Error adding user:", error.message);
+        alert("Failed to create user.");
+      }
+    };
+  </script>
+
+</body>
+</html>
