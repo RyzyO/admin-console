@@ -25,10 +25,6 @@
         <input type="text" id="amtOutstandingInput">
       </div>
       <div>
-        <label>Email:</label>
-        <input type="text" id="emailInput">
-      </div>
-      <div>
         <label>Hacker Number:</label>
         <input type="text" id="hackerNumberInput">
       </div>
@@ -73,8 +69,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signInAnonymously, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     // Firebase configuration
@@ -90,7 +85,6 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const rtdb = getDatabase(app);
     const auth = getAuth(app);
 
     // Check user authentication
@@ -120,19 +114,11 @@
     // Search for a user by displayName
     document.getElementById('searchBtn').onclick = async () => {
       const searchDisplayName = document.getElementById('searchInput').value;
-      const usersRef = ref(rtdb, 'users');
-      const snapshot = await get(usersRef);
+      const usersRef = doc(db, 'users', searchDisplayName);
+      const snapshot = await getDoc(usersRef);
       
-      let foundUser = null;
-      snapshot.forEach(childSnapshot => {
-        const userData = childSnapshot.val();
-        if (userData.displayName === searchDisplayName) {
-          foundUser = childSnapshot.key;
-        }
-      });
-
-      if (foundUser) {
-        displayUserDetails(foundUser);
+      if (snapshot.exists()) {
+        displayUserDetails(snapshot.id);
       } else {
         alert("User not found");
       }
@@ -140,25 +126,18 @@
 
     // Display user details and make them editable
     async function displayUserDetails(userID) {
-      const userRef = ref(rtdb, 'users/' + userID);
-      const snapshot = await get(userRef);
+      const userRef = doc(db, 'users', userID);
+      const snapshot = await getDoc(userRef);
 
       if (snapshot.exists()) {
-        const userData = snapshot.val();
+        const userData = snapshot.data();
         document.getElementById('amtOutstandingInput').value = userData.amtOutstanding;
-        document.getElementById('emailInput').value = userData.email;
         document.getElementById('hackerNumberInput').value = userData.hackerNumber;
         document.getElementById('roomNumberInput').value = userData.roomNumber;
         document.getElementById('friInput').value = userData.fri;
         document.getElementById('satInput').value = userData.sat;
         document.getElementById('sunInput').value = userData.sun;
-      }
-
-      const financialStatusRef = doc(db, "users", userID);
-      const financialStatusDoc = await getDoc(financialStatusRef);
-
-      if (financialStatusDoc.exists()) {
-        document.getElementById('financialStatusInput').value = financialStatusDoc.data().financialStatus;
+        document.getElementById('financialStatusInput').value = userData.financialStatus;
       }
 
       document.getElementById('userDetails').style.display = 'block';
@@ -169,29 +148,17 @@
       const userID = document.getElementById('searchInput').value;
       const updatedData = {
         amtOutstanding: document.getElementById('amtOutstandingInput').value,
-        email: document.getElementById('emailInput').value,
         hackerNumber: document.getElementById('hackerNumberInput').value,
         roomNumber: document.getElementById('roomNumberInput').value,
         fri: document.getElementById('friInput').value,
         sat: document.getElementById('satInput').value,
-        sun: document.getElementById('sunInput').value
+        sun: document.getElementById('sunInput').value,
+        financialStatus: document.getElementById('financialStatusInput').value
       };
 
-      // Update Realtime Database
-      const userRef = ref(rtdb, 'users/' + userID);
-      await update(userRef, updatedData);
-
-      // Update Firestore
-      const financialStatusRef = doc(db, "users", userID);
-      await setDoc(financialStatusRef, {
-        financialStatus: document.getElementById('financialStatusInput').value
-      }, { merge: true });
-
-      // Update amtOutstanding in Firestore
-      const amtOutstandingRef = doc(db, "users", userID);
-      await setDoc(amtOutstandingRef, {
-        amtOutstanding: document.getElementById('amtOutstandingInput').value
-      }, { merge: true });
+      // Update Firestore only
+      const userRef = doc(db, 'users', userID);
+      await updateDoc(userRef, updatedData);
 
       alert("User data updated successfully");
     };
@@ -207,29 +174,17 @@
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Add user details to Firestore and Realtime Database
+        // Add user details to Firestore
         const newUserRef = doc(db, "users", user.uid);
         await setDoc(newUserRef, {
           displayName,
           amtOutstanding: 0,
-          email,
           hackerNumber: "",
           roomNumber: "",
           fri: "",
           sat: "",
-          sun: ""
-        });
-
-        const newUserRTDBRef = ref(rtdb, 'users/' + user.uid);
-        await set(newUserRTDBRef, {
-          displayName,
-          amtOutstanding: 0,
-          email,
-          hackerNumber: "",
-          roomNumber: "",
-          fri: "",
-          sat: "",
-          sun: ""
+          sun: "",
+          financialStatus: ""
         });
 
         alert("New user added successfully");
